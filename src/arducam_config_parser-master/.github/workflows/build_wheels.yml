@@ -1,0 +1,119 @@
+name: build_wheels
+
+# Controls when the workflow will run
+on:
+  # Triggers the workflow on push or pull request events but only for the master branch
+  push:
+    branches: [master]
+  pull_request:
+    branches: [master]
+
+  # Allows you to run this workflow manually from the Actions tab
+  workflow_dispatch:
+
+# A workflow run is made up of one or more jobs that can run sequentially or in parallel
+jobs:
+  # This job builds wheels for armhf arch (RPi)
+  build_wheels:
+    name: Build wheel for ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+
+    strategy:
+      # Ensure that a wheel builder finishes even if another fails
+      matrix:
+        os: [windows-latest, ubuntu-latest]
+
+    steps:
+      - uses: actions/checkout@v2
+      - run: cp -r src Python/src
+          && cp -r msvc Python/msvc
+          && cp README.md Python/
+          
+      - uses: actions/setup-python@v2
+      - name: setup python env
+        run: python -m pip install -U wheel setuptools
+
+      - name: build sdist
+        run: cd Python
+          && python setup.py sdist -d ./wheelhouse
+
+      - name: Add MSBuild to PATH
+        if: ${{ matrix.os == 'windows-latest' }}
+        uses: microsoft/setup-msbuild@v1.0.2
+
+      - name: build armv6 so
+        if: ${{ matrix.os == 'ubuntu-latest' }}
+        run: git clone https://github.com/759401524/cross-pi-gcc-10.2.0.git
+          && export PATH=$PATH:$(pwd)/cross-pi-gcc-10.2.0/bin
+          && cd src
+          && make clean
+          && make ARCH=arm CROSS_COMPILE=arm-linux-gnueabihf-
+          && cp ../bin/*.so ../Python/arducam_config_parser/
+
+      - name: build armv6 whl
+        if: ${{ matrix.os == 'ubuntu-latest' }}
+        run: cd Python
+          && python setup.py bdist_wheel -p linux_armv6l --universal -d ./wheelhouse
+
+      - name: build armv7 so
+        if: ${{ matrix.os == 'ubuntu-latest' }}
+        run: cd cross-pi-gcc-10.2.0
+          && git checkout origin/armv7
+          && export PATH=$PATH:$(pwd)/bin
+          && cd ../src
+          && make clean
+          && make ARCH=arm CROSS_COMPILE=arm-linux-gnueabihf-
+          && cp ../bin/*.so ../Python/arducam_config_parser/
+
+      - name: build armv7 whl
+        if: ${{ matrix.os == 'ubuntu-latest' }}
+        run: cd Python
+          && python setup.py bdist_wheel -p linux_armv7l --universal  -d ./wheelhouse
+
+      - name: build armv8 so
+        if: ${{ matrix.os == 'ubuntu-latest' }}
+        run: cd cross-pi-gcc-10.2.0
+          && git checkout origin/aarch64
+          && export PATH=$PATH:$(pwd)/bin
+          && cd ../src
+          && make clean
+          && make ARCH=arm CROSS_COMPILE=aarch64-linux-gnu-
+          && cp ../bin/*.so ../Python/arducam_config_parser/
+
+      - name: build armv8 whl
+        if: ${{ matrix.os == 'ubuntu-latest' }}
+        run: cd Python
+          && python setup.py bdist_wheel -p manylinux2014_aarch64 --universal  -d ./wheelhouse
+
+      - name: Build x86_64 wheel
+        if: ${{ matrix.os == 'ubuntu-latest' }}
+        run: cd Python
+          && python setup.py bdist_wheel --universal -p manylinux2014_x86_64 -d ./wheelhouse
+
+      - name: Build x86 dll
+        if: ${{ matrix.os == 'windows-latest' }}
+        run: cd msvc
+          && msbuild arducam_config_parser.sln /m /t:Rebuild /p:Configuration=Release /p:Platform=x86
+          && cp ../bin/win32/Release/*.dll ../Python/arducam_config_parser/
+
+      - name: Build x86 wheels
+        if: ${{ matrix.os == 'windows-latest' }}
+        run: cd Python
+          && python setup.py bdist_wheel --universal -p win32 -d ./wheelhouse
+
+      - name: Build x64 dll
+        if: ${{ matrix.os == 'windows-latest' }}
+        run: cd msvc
+          && msbuild arducam_config_parser.sln /m /t:Rebuild /p:Configuration=Release /p:Platform=x64
+          && cp ../bin/x64/Release/*.dll ../Python/arducam_config_parser/
+
+      - name: Build  x64 wheels
+        if: ${{ matrix.os == 'windows-latest' }}
+        run: cd Python
+          && python setup.py bdist_wheel --universal -p win_amd64 -d ./wheelhouse
+
+      - name: Archive wheel artifacts
+        uses: actions/upload-artifact@v2
+        with:
+          name: wheels
+          path: ./Python/wheelhouse/

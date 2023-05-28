@@ -1,0 +1,8 @@
+prefix=/home/mohammad/catkin_ws/install
+
+Name: arducam_usb2_ros
+Description: Description of arducam_usb2_ros
+Version: 1.0.0
+Cflags: -I${prefix}/include
+Libs: -L${prefix}/lib 
+Requires: 

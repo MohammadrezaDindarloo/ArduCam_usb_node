@@ -1,0 +1,2 @@
+arducam_usb2_ros:beginner_tutorials
+-DCATKIN_DEVEL_PREFIX=/home/mohammad/catkin_ws/devel -DCMAKE_INSTALL_PREFIX=/home/mohammad/catkin_ws/install -G Unix Makefiles

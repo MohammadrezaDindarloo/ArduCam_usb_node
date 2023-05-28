@@ -1,0 +1,11 @@
+.vscode/
+lib/
+obj/
+*.o
+*.a
+*.so
+*.pyc
+release/
+bin/
+arducam_config_parser.vcxproj.user
+.vs/
